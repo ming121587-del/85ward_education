@@ -1,0 +1,1328 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>교육이수 확인 수첩</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --ink:#16302C;
+    --teal-900:#0F3D38;
+    --teal-700:#16544C;
+    --teal-500:#1F7A6C;
+    --mint:#4FD1B8;
+    --mint-soft:#DFF5EF;
+    --amber:#E8A33D;
+    --amber-soft:#FBEBD3;
+    --red-soft:#FBEAE6;
+    --red-ink:#B3492F;
+    --paper:#F6F8F7;
+    --card:#FFFFFF;
+    --line:#E2E8E5;
+    --muted:#6B7B77;
+    --radius:14px;
+    --shadow: 0 1px 2px rgba(15,61,56,0.06), 0 8px 24px rgba(15,61,56,0.06);
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--paper);
+    color:var(--ink);
+    font-family:'Apple SD Gothic Neo','Malgun Gothic','Noto Sans KR',system-ui,-apple-system,sans-serif;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1040px;margin:0 auto;padding:28px 20px 80px;}
+
+  .masthead{
+    display:flex;align-items:center;justify-content:space-between;
+    margin-bottom:22px;flex-wrap:wrap;gap:12px;
+  }
+  .brand{display:flex;align-items:center;gap:12px;}
+  .brand-mark{
+    width:40px;height:40px;border-radius:10px;
+    background:linear-gradient(135deg,var(--teal-900),var(--teal-500));
+    display:flex;align-items:center;justify-content:center;
+    color:#fff;font-weight:700;font-size:18px;letter-spacing:-0.5px;
+    box-shadow:var(--shadow);
+  }
+  .brand-text h1{font-size:18px;margin:0;letter-spacing:-0.3px;}
+  .brand-text p{margin:2px 0 0;font-size:12.5px;color:var(--muted);}
+
+  .mode-toggle{display:flex;background:#fff;border:1px solid var(--line);border-radius:999px;padding:4px;box-shadow:var(--shadow);}
+  .mode-toggle button{
+    border:none;background:transparent;padding:9px 18px;border-radius:999px;
+    font-size:13.5px;font-weight:600;color:var(--muted);cursor:pointer;transition:.18s;
+  }
+  .mode-toggle button.active{background:var(--teal-900);color:#fff;}
+
+  .card{
+    background:var(--card);border:1px solid var(--line);border-radius:var(--radius);
+    padding:22px;box-shadow:var(--shadow);margin-bottom:18px;
+  }
+  .card h2{font-size:15px;margin:0 0 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .card h2 .tag{font-size:11px;font-weight:700;color:var(--teal-700);background:var(--mint-soft);padding:3px 8px;border-radius:6px;letter-spacing:0.3px;}
+  .card h2 .spacer{flex:1;}
+
+  label{font-size:12.5px;color:var(--muted);display:block;margin-bottom:5px;}
+  select, input[type=text], input[type=date], input[type=time], input[type=number], input[type=password], input[type=file]{
+    width:100%;padding:10px 11px;border:1px solid var(--line);border-radius:9px;
+    font-size:14px;background:#fcfdfd;color:var(--ink);font-family:inherit;
+  }
+  input[type=file]{padding:7px;font-size:12.5px;}
+  select:focus, input:focus{outline:2px solid var(--mint);outline-offset:1px;border-color:var(--teal-500);}
+  .row{display:flex;gap:12px;flex-wrap:wrap;}
+  .row > div{flex:1;min-width:140px;}
+
+  .btn{
+    border:none;border-radius:9px;padding:10px 16px;font-size:13.5px;font-weight:600;
+    cursor:pointer;transition:.15s;white-space:nowrap;
+  }
+  .btn-primary{background:var(--teal-900);color:#fff;}
+  .btn-primary:hover{background:var(--teal-700);}
+  .btn-ghost{background:transparent;color:var(--teal-700);border:1px solid var(--teal-500);}
+  .btn-ghost:hover{background:var(--mint-soft);}
+  .btn-danger{background:#fff;color:#B3492F;border:1px solid #E8C3B7;}
+  .btn-danger:hover{background:#FBEEE9;}
+  .btn-ai{background:#fff;color:#1F7A6C;border:1px dashed var(--teal-500);}
+  .btn-ai:hover{background:var(--mint-soft);}
+  .btn-sm{padding:7px 12px;font-size:12.5px;}
+  .btn-xl{background:#1A6E63;color:#fff;}
+
+  .id-badge{
+    display:flex;align-items:center;justify-content:space-between;gap:18px;flex-wrap:wrap;
+    background:linear-gradient(135deg,var(--teal-900) 0%, var(--teal-700) 60%, var(--teal-500) 130%);
+    color:#fff;border-radius:var(--radius);padding:24px 26px;margin-bottom:18px;
+    box-shadow:var(--shadow);position:relative;overflow:hidden;
+  }
+  .id-badge::after{
+    content:"";position:absolute;right:-40px;top:-40px;width:160px;height:160px;border-radius:50%;
+    background:rgba(255,255,255,0.06);
+  }
+  .id-badge .who h2{font-size:21px;margin:0 0 4px;color:#fff;}
+  .id-badge .who p{margin:0;font-size:13px;opacity:0.82;}
+  .id-badge .actions{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .level-pill{
+    background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.35);
+    padding:8px 16px;border-radius:999px;font-size:13px;font-weight:700;white-space:nowrap;
+  }
+  .badge-link{
+    background:rgba(255,255,255,0.16);border:1px solid rgba(255,255,255,0.35);color:#fff;
+    padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:600;cursor:pointer;
+  }
+  .badge-link:hover{background:rgba(255,255,255,0.26);}
+
+  .star-progress{display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .stars{display:flex;gap:6px;}
+  .star(width:30px;height:30px;}
+  .star-label{font-size:13px;color:var(--muted);}
+  .star-label b{color:var(--ink);font-size:15px;}
+
+  .prog-item{
+    display:flex;align-items:center;gap:14px;padding:14px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;
+  }
+  .prog-item:last-child{border-bottom:none;}
+  .prog-main{flex:1;min-width:160px;}
+  .prog-name{font-weight:600;font-size:14.5px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;}
+  .prog-stars{display:flex;gap:2px;}
+  .prog-stars svg{width:14px;height:14px;}
+  .prog-meta{font-size:12px;color:var(--muted);margin-top:3px;}
+  .prog-inputs{display:flex;gap:8px;align-items:center;flex-wrap:wrap;}
+  .prog-inputs input{width:140px;}
+  .status-chip{
+    font-size:11.5px;font-weight:700;padding:4px 9px;border-radius:7px;white-space:nowrap;
+  }
+  .status-chip.done{background:var(--mint-soft);color:var(--teal-700);}
+  .status-chip.pending{background:var(--amber-soft);color:#A3681B;}
+  .status-chip.warn{background:var(--red-soft);color:var(--red-ink);}
+
+  .mand-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:14px;align-items:start;}
+  .mand-box{border:1px solid var(--line);border-radius:11px;padding:14px;}
+  .mand-box h3{margin:0 0 10px;font-size:13.5px;}
+  .mand-box .status-chip{margin-bottom:10px;display:inline-block;}
+  .file-chip{
+    display:inline-flex;align-items:center;gap:6px;font-size:11.5px;background:#F0F4F3;color:var(--teal-700);
+    padding:4px 9px;border-radius:7px;margin:3px 4px 0 0;cursor:pointer;border:1px solid var(--line);
+  }
+  .file-chip:hover{background:var(--mint-soft);}
+
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  th,td{text-align:left;padding:9px 8px;border-bottom:1px solid var(--line);}
+  th{color:var(--muted);font-weight:600;font-size:12px;}
+  tr:hover td{background:#FAFCFB;}
+
+  .empty{color:var(--muted);font-size:13px;padding:18px 0;text-align:center;}
+  .small-muted{font-size:12px;color:var(--muted);}
+  .tabs{display:flex;gap:6px;margin-bottom:16px;flex-wrap:wrap;}
+  .tabs button{
+    border:1px solid var(--line);background:#fff;padding:8px 14px;border-radius:9px;
+    font-size:13px;font-weight:600;color:var(--muted);cursor:pointer;
+  }
+  .tabs button.active{background:var(--teal-900);color:#fff;border-color:var(--teal-900);}
+
+  .login-box{max-width:340px;margin:60px auto;text-align:center;}
+  .login-box .brand-mark{margin:0 auto 14px;}
+  .inline-form{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
+  .inline-form > *{flex:1;min-width:110px;}
+  .list-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .list-row:last-child{border-bottom:none;}
+  .list-row .meta{flex:1;font-size:13.5px;}
+  .list-row .meta .sub{font-size:12px;color:var(--muted);margin-top:2px;}
+  .toast{
+    position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
+    background:var(--teal-900);color:#fff;padding:11px 20px;border-radius:9px;
+    font-size:13.5px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.25s;z-index:50;max-width:90vw;text-align:center;
+  }
+  .toast.show{opacity:1;}
+  .loading{padding:40px;text-align:center;color:var(--muted);font-size:13.5px;}
+
+  .refresher-entry{border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:10px;background:#FAFCFB;}
+  .refresher-entry .re-head{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;}
+  .refresher-entry .re-title{font-weight:700;font-size:13.5px;}
+  .refresher-entry .re-meta{font-size:12px;color:var(--muted);margin-top:2px;}
+  .refresher-form{border:1px dashed var(--teal-500);border-radius:10px;padding:14px;margin-top:8px;background:#fff;}
+  .field-row{margin-bottom:10px;}
+  .checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;margin-bottom:10px;}
+  .checkbox-row input{width:auto;}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:4px;}
+
+  .modal-overlay{
+    position:fixed;inset:0;background:rgba(15,30,28,0.45);display:flex;align-items:flex-start;justify-content:center;
+    padding:40px 16px;overflow-y:auto;z-index:60;
+  }
+  .modal{background:#fff;border-radius:14px;max-width:760px;width:100%;padding:24px;box-shadow:var(--shadow);}
+  .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
+  .modal-head h2{margin:0;font-size:16px;}
+
+  @media (max-width:560px){
+    .id-badge{flex-direction:column;align-items:flex-start;}
+    .prog-item{flex-direction:column;align-items:flex-start;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap" id="app">
+  <div class="loading">불러오는 중…</div>
+</div>
+<div class="toast" id="toast"></div>
+<div id="modal-root"></div>
+
+<script>
+/* 고유 저장소 환경 에러 수정을 위해 범용적인 브라우저 localStorage 기반으로 변경 */
+const CURRENT_YEAR = new Date().getFullYear();
+const TRACKING_START_YEAR = 2025;
+const MANDATORY_SIMPLE = [
+  {key:'hospital', label:'병원 필수교육'},
+  {key:'online', label:'온라인 특성화교육'}
+];
+const STAR_GOAL = 5;
+const MAX_FILE_BYTES = 3 * 1024 * 1024; // 3MB
+
+let state = {
+  mode: 'nurse',
+  nurses: [],
+  levels: [],
+  programs: [],
+  adminPassword: '0000',
+  adminUnlocked: false,
+  selectedNurseId: null,
+  selectedYear: CURRENT_YEAR,
+  adminTab: 'roster',
+  recordsCache: {},
+  showRefresherForm: {}, 
+  historyNurseId: null
+};
+
+function uid(prefix){ return prefix + '_' + Math.random().toString(36).slice(2,9); }
+
+function showToast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'), 2000);
+}
+
+/* 브라우저용 로컬 스토리지 데이터 입출력 함수 */
+async function safeGet(key, shared){
+  try{
+    const val = localStorage.getItem(key);
+    return val ? { value: JSON.parse(val) } : null;
+  }catch(e){ return null; }
+}
+async function safeSet(key, value, shared){
+  try{ 
+    localStorage.setItem(key, JSON.stringify(value));
+    return true;
+  }
+  catch(e){ console.error(e); showToast('저장 공간이 부족합니다 (첨부파일 용량을 줄여보세요)'); return null; }
+}
+async function safeList(prefix, shared){
+  try{ 
+    const keys = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      if (localStorage.key(i).startsWith(prefix)) {
+        keys.push(localStorage.key(i));
+      }
+    }
+    return { keys };
+  }catch(e){ return null; }
+}
+
+function starSVG(filled){
+  return `<svg viewBox="0 0 24 24" style="width:30px; height:30px;" fill="${filled?'#FFC34D':'none'}" stroke="${filled?'#E8A33D':'#C9D4D1'}" stroke-width="1.6">
+    <polygon points="12,2.5 14.9,9.1 22.1,9.8 16.7,14.6 18.3,21.7 12,17.9 5.7,21.7 7.3,14.6 1.9,9.8 9.1,9.1"/>
+  </svg>`;
+}
+function miniStarSVG(filled){
+  return `<svg viewBox="0 0 24 24" style="width:14px; height:14px;" fill="${filled?'#FFC34D':'none'}" stroke="${filled?'#E8A33D':'#C9D4D1'}" stroke-width="2">
+    <polygon points="12,2.5 14.9,9.1 22.1,9.8 16.7,14.6 18.3,21.7 12,17.9 5.7,21.7 7.3,14.6 1.9,9.8 9.1,9.1"/>
+  </svg>`;
+}
+
+function yearsOfService(hireDate, atYear){
+  if(!hireDate) return 0;
+  const hire = new Date(hireDate);
+  const refDate = new Date(atYear, 11, 31);
+  let yrs = (refDate - hire) / (1000*60*60*24*365.25);
+  return Math.max(0, yrs);
+}
+
+function levelForYears(levels, yrs){
+  const sorted = [...levels].sort((a,b)=>a.minYears-b.minYears);
+  for(const lv of sorted){
+    const max = (lv.maxYears===null || lv.maxYears===undefined) ? Infinity : lv.maxYears;
+    if(yrs >= lv.minYears && yrs < max) return lv;
+  }
+  return sorted.length ? sorted[sorted.length-1] : null;
+}
+
+function yearOptions(){
+  const arr=[];
+  for(let y=CURRENT_YEAR+1; y>=TRACKING_START_YEAR-3; y--) arr.push(y);
+  return arr;
+}
+
+/* ---------- file helpers ---------- */
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const reader = new FileReader();
+    reader.onload = ()=> resolve(reader.result.split(',')[1]);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+async function readFileInput(inputEl){
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return null;
+  if(file.size > MAX_FILE_BYTES){
+    showToast('파일 용량은 3MB 이하만 첨부할 수 있습니다');
+    return null;
+  }
+  const data = await fileToBase64(file);
+  return {name:file.name, mime:file.type || 'application/octet-stream', data};
+}
+function downloadStoredFile(fileObj){
+  if(!fileObj) return;
+  const link = document.createElement('a');
+  link.href = `data:${fileObj.mime};base64,${fileObj.data}`;
+  link.download = fileObj.name;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+}
+
+/* ---------- AI auto-extract ---------- */
+async function extractCertInfo(fileObj){
+  if(!fileObj || !fileObj.mime.startsWith('image/')){
+    showToast('자동 인식은 이미지 파일(JPG/PNG)만 지원합니다. 직접 입력해주세요.');
+    return null;
+  }
+  showToast('이수증을 분석하고 있습니다…');
+  try{
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({
+        model:'claude-sonnet-4-6',
+        max_tokens:1000,
+        messages:[{
+          role:'user',
+          content:[
+            {type:'image', source:{type:'base64', media_type:fileObj.mime, data:fileObj.data}},
+            {type:'text', text:'이 이미지는 간호사 보수교육 이수증 또는 수료증입니다. 교육명(과정명)과 이수(수료) 날짜를 읽어서 아래 JSON 형식으로만 답하세요. 다른 설명, 마크다운 코드블록 없이 JSON 객체 하나만 출력하세요.\n{"education_name":"교육명","date":"YYYY-MM-DD"}\n날짜를 정확히 알 수 없으면 date는 빈 문자열("")로 두세요.'}
+          ]
+        }]
+      })
+    });
+    const data = await resp.json();
+    const textBlock = (data.content||[]).map(c=>c.text||'').join('');
+    const cleaned = textBlock.replace(/```json|```/g,'').trim();
+    const parsed = JSON.parse(cleaned);
+    return parsed;
+  }catch(e){
+    console.error(e);
+    showToast('자동 인식에 실패했습니다. 직접 입력해주세요.');
+    return null;
+  }
+}
+
+/* ---------- data load ---------- */
+async function loadAll(){
+  const [nurses, levels, programs, pw] = await Promise.all([
+    safeGet('nurses', true),
+    safeGet('levels', true),
+    safeGet('programs', true),
+    safeGet('admin_password', true)
+  ]);
+  state.nurses = nurses ? nurses.value : [];
+  state.levels = levels ? levels.value : defaultLevels();
+  state.programs = programs ? programs.value : [];
+  state.adminPassword = pw ? pw.value : '0000';
+  if(!levels){ await safeSet('levels', state.levels, true); }
+}
+
+function defaultLevels(){
+  return [
+    {id: uid('lv'), label:'1단계 (1년 미만)', minYears:0, maxYears:1},
+    {id: uid('lv'), label:'2단계 (1~3년)', minYears:1, maxYears:3},
+    {id: uid('lv'), label:'3단계 (3~7년)', minYears:3, maxYears:7},
+    {id: uid('lv'), label:'4단계 (7년 이상)', minYears:7, maxYears:null},
+  ];
+}
+
+function blankRecord(){ return {programs:{}, mandatory:{hospital:null, online:null, refresher:[]}}; }
+
+async function getRecord(nurseId, year){
+  const key = `${nurseId}:${year}`;
+  if(state.recordsCache[key]) return state.recordsCache[key];
+  const data = await safeGet(`records:${key}`, true);
+  const rec = data ? data.value : blankRecord();
+  if(!rec.mandatory) rec.mandatory = {hospital:null, online:null, refresher:[]};
+  if(!rec.mandatory.refresher) rec.mandatory.refresher = [];
+  state.recordsCache[key] = rec;
+  return rec;
+}
+async function saveRecord(nurseId, year, rec){
+  const key = `${nurseId}:${year}`;
+  state.recordsCache[key] = rec;
+  await safeSet(`records:${key}`, rec, true);
+}
+async function getAllRecordsForNurse(nurseId){
+  const list = await safeList(`records:${nurseId}:`, true);
+  const out = [];
+  if(!list || !list.keys) return out;
+  for(const k of list.keys){
+    const parts = k.split(':');
+    const year = parseInt(parts[parts.length - 1]);
+    const rec = await getRecord(nurseId, year);
+    out.push({year, rec});
+  }
+  out.sort((a,b)=>b.year-a.year);
+  return out;
+}
+async function findDuplicateProgram(nurseId, programId, excludeYear){
+  const list = await safeList(`records:${nurseId}:`, true);
+  if(!list || !list.keys) return null;
+  for(const k of list.keys){
+    const parts = k.split(':');
+    const year = parseInt(parts[parts.length - 1]);
+    if(year === excludeYear) continue;
+    const rec = await getRecord(nurseId, year);
+    if(rec.programs[programId] && rec.programs[programId].date){
+      return {year, date: rec.programs[programId].date};
+    }
+  }
+  return null;
+}
+
+/* ---------- excel export ---------- */
+function exportAOA(aoa, filename){
+  try{
+    const ws = XLSX.utils.aoa_to_sheet(aoa);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+    XLSX.writeFile(wb, filename);
+  }catch(e){
+    console.error(e);
+    showToast('엑셀 내보내기에 실패했습니다');
+  }
+}
+
+function render(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <div class="masthead">
+      <div class="brand">
+        <div class="brand-mark">EN</div>
+        <div class="brand-text">
+          <h1>교육이수 확인 수첩</h1>
+          <p>연차별 단계 교육 + 필수교육 + 증빙자료 관리</p>
+        </div>
+      </div>
+      <div class="mode-toggle">
+        <button id="btn-nurse-mode" class="${state.mode==='nurse'?'active':''}">간호사 모드</button>
+        <button id="btn-admin-mode" class="${state.mode==='admin'?'active':''}">관리자 모드</button>
+      </div>
+    </div>
+    <div id="content"></div>
+  `;
+  document.getElementById('btn-nurse-mode').onclick = ()=>{ state.mode='nurse'; render(); };
+  document.getElementById('btn-admin-mode').onclick = ()=>{ state.mode='admin'; render(); };
+
+  if(state.mode==='nurse') renderNurseMode();
+  else renderAdminMode();
+}
+
+/* ================= NURSE MODE ================= */
+async function renderNurseMode(){
+  const content = document.getElementById('content');
+  const years = yearOptions();
+  content.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">본인 확인</span> 이름 선택</h2>
+      <div class="row">
+        <div>
+          <label>간호사 이름</label>
+          <select id="nurse-select">
+            <option value="">선택하세요</option>
+            ${state.nurses.map(n=>`<option value="${n.id}" ${state.selectedNurseId===n.id?'selected':''}>${n.name}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>이수 연도</label>
+          <select id="year-select">
+            ${years.map(y=>`<option value="${y}" ${state.selectedYear===y?'selected':''}>${y}년${y<TRACKING_START_YEAR?' (이전 기록)':''}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      ${state.nurses.length===0?'<p class="small-muted" style="margin-top:10px;">등록된 간호사가 없습니다. 관리자 모드에서 먼저 명단을 등록해주세요.</p>':''}
+    </div>
+    <div id="nurse-detail"></div>
+  `;
+  document.getElementById('nurse-select').onchange = (e)=>{ state.selectedNurseId = e.target.value || null; renderNurseDetail(); };
+  document.getElementById('year-select').onchange = (e)=>{ state.selectedYear = parseInt(e.target.value); renderNurseDetail(); };
+  renderNurseDetail();
+}
+
+async function renderNurseDetail(){
+  const wrap = document.getElementById('nurse-detail');
+  if(!wrap) return;
+  if(!state.selectedNurseId){ wrap.innerHTML = ''; return; }
+  const nurse = state.nurses.find(n=>n.id===state.selectedNurseId);
+  if(!nurse){ wrap.innerHTML=''; return; }
+  wrap.innerHTML = `<div class="loading">불러오는 중…</div>`;
+  const year = state.selectedYear;
+  const yrs = yearsOfService(nurse.hireDate, year);
+  const level = levelForYears(state.levels, yrs);
+  const levelPrograms = level ? state.programs.filter(p=>p.levelId===level.id) : [];
+  const rec = await getRecord(nurse.id, year);
+
+  let totalStars = 0;
+  levelPrograms.forEach(p=>{ if(rec.programs[p.id] && rec.programs[p.id].date) totalStars += p.stars; });
+
+  const refresherCount = rec.mandatory.refresher.length;
+  const mandatoryDone = (rec.mandatory.hospital && rec.mandatory.hospital.date ? 1:0)
+    + (rec.mandatory.online && rec.mandatory.online.date ? 1:0)
+    + (refresherCount>0 ? 1:0);
+
+  // duplicate flags (compute in parallel)
+  const dupFlags = {};
+  await Promise.all(levelPrograms.map(async p=>{
+    if(rec.programs[p.id] && rec.programs[p.id].date) return; 
+    const dup = await findDuplicateProgram(nurse.id, p.id, year);
+    if(dup) dupFlags[p.id] = dup;
+  }));
+
+  wrap.innerHTML = `
+    <div class="id-badge">
+      <div class="who">
+        <h2>${nurse.name} 간호사</h2>
+        <p>입사일 ${nurse.hireDate || '미등록'} · ${year}년 기준 ${yrs.toFixed(1)}년차</p>
+      </div>
+      <div class="actions">
+        <span class="level-pill">${level ? level.label : '단계 미지정'}</span>
+        <button class="badge-link" id="show-history-btn">전체 이력 보기</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="tag">${year}년 목표</span> 단계별 교육 (별 ${STAR_GOAL}개)</h2>
+      <div class="star-progress" style="margin-bottom:16px;">
+        <div class="stars">${[1,2,3,4,5].map(i=>starSVG(totalStars>=i)).join('')}</div>
+        <div class="star-label"><b>${totalStars} / ${STAR_GOAL}</b> 개 달성 ${totalStars>STAR_GOAL?`<span class="small-muted">(목표 초과 ${totalStars-STAR_GOAL}개)</span>`:''}</div>
+      </div>
+      <div id="program-list">
+        ${levelPrograms.length===0 ? '<div class="empty">현재 단계에 등록된 교육 프로그램이 없습니다.<br/>관리자에게 프로그램 등록을 요청하세요.</div>' :
+          levelPrograms.map(p=>renderProgramRow(p, rec, dupFlags[p.id])).join('')}
+      </div>
+    </div>
+
+    <div class="card">
+      <h2><span class="tag">의무 이수</span> 필수교육 (3종)</h2>
+      <p class="small-muted" style="margin:-6px 0 14px;">${mandatoryDone} / 3 항목 완료</p>
+      <div class="mand-grid">
+        ${MANDATORY_SIMPLE.map(m=>renderSimpleMandatoryBox(m, rec)).join('')}
+        ${renderRefresherBox(rec, nurse.id)}
+      </div>
+    </div>
+
+    <div id="history-panel"></div>
+  `;
+
+  document.getElementById('show-history-btn').onclick = ()=> openHistoryModal(nurse.id);
+
+  levelPrograms.forEach(p=>{
+    bindProgramRow(p, rec, nurse, year);
+  });
+
+  MANDATORY_SIMPLE.forEach(m=>{
+    bindSimpleMandatory(m, rec, nurse, year);
+  });
+
+  bindRefresherBox(rec, nurse, year);
+}
+
+function renderProgramRow(p, rec, dup){
+  const done = rec.programs[p.id] && rec.programs[p.id].date;
+  const info = rec.programs[p.id] || {};
+  return `
+    <div class="prog-item">
+      <div class="prog-main">
+        <div class="prog-name">
+          ${p.name}
+          <span class="prog-stars">${Array.from({length:p.stars}).map(()=>miniStarSVG(true)).join('')}</span>
+          ${dup ? `<span class="status-chip warn">⚠ ${dup.year}년 이미 이수 (중복 인정불가)</span>` : ''}
+        </div>
+        <div class="prog-meta">${done ? `이수일 ${info.date}${info.time?` · ${info.time}`:''}` : '미이수'}</div>
+      </div>
+      <div class="prog-inputs">
+        <span class="status-chip ${done?'done':'pending'}">${done?'이수완료':'미이수'}</span>
+        <input type="date" id="p-date-${p.id}" value="${info.date||''}">
+        <input type="time" id="p-time-${p.id}" value="${info.time||''}">
+        <button class="btn btn-primary btn-sm" id="p-save-${p.id}">저장</button>
+        ${done?`<button class="btn btn-danger btn-sm" id="p-clear-${p.id}">삭제</button>`:''}
+      </div>
+    </div>
+  `;
+}
+function bindProgramRow(p, rec, nurse, year){
+  const dateEl = document.getElementById(`p-date-${p.id}`);
+  const timeEl = document.getElementById(`p-time-${p.id}`);
+  const saveBtn = document.getElementById(`p-save-${p.id}`);
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      const d = dateEl.value, t = timeEl.value;
+      if(!d){ showToast('이수 날짜를 입력해주세요'); return; }
+      rec.programs[p.id] = {date:d, time:t};
+      await saveRecord(nurse.id, year, rec);
+      showToast(`${p.name} 이수 정보가 저장되었습니다`);
+      renderNurseDetail();
+    };
+  }
+  const clearBtn = document.getElementById(`p-clear-${p.id}`);
+  if(clearBtn){
+    clearBtn.onclick = async ()=>{
+      delete rec.programs[p.id];
+      await saveRecord(nurse.id, year, rec);
+      showToast('이수 기록을 삭제했습니다');
+      renderNurseDetail();
+    };
+  }
+}
+
+function renderSimpleMandatoryBox(m, rec){
+  const info = rec.mandatory[m.key];
+  const done = info && info.date;
+  return `
+    <div class="mand-box">
+      <h3>${m.label}</h3>
+      <span class="status-chip ${done?'done':'pending'}">${done?'이수완료':'미이수'}</span>
+      ${done?`<div class="small-muted" style="margin-bottom:8px;">이수일 ${info.date}${info.time?` · ${info.time}`:''}</div>`:''}
+      ${done && info.file ? `<div class="file-chip" id="m-file-${m.key}">📎 ${info.file.name}</div>` : ''}
+      <div style="display:flex;gap:6px;margin-top:8px;flex-wrap:wrap;">
+        <input type="date" id="m-date-${m.key}" value="${info && info.date||''}" style="flex:1;min-width:110px;">
+        <input type="time" id="m-time-${m.key}" value="${info && info.time||''}" style="flex:1;min-width:90px;">
+      </div>
+      <div class="field-row" style="margin-top:8px;">
+        <label>이수증 첨부 (선택)</label>
+        <input type="file" id="m-file-input-${m.key}" accept="image/*,application/pdf">
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px;">
+        <button class="btn btn-primary btn-sm" id="m-save-${m.key}" style="flex:1;">저장</button>
+        ${done?`<button class="btn btn-danger btn-sm" id="m-clear-${m.key}">삭제</button>`:''}
+      </div>
+    </div>
+  `;
+}
+function bindSimpleMandatory(m, rec, nurse, year){
+  const dateEl = document.getElementById(`m-date-${m.key}`);
+  const timeEl = document.getElementById(`m-time-${m.key}`);
+  const fileEl = document.getElementById(`m-file-input-${m.key}`);
+  const saveBtn = document.getElementById(`m-save-${m.key}`);
+  const fileChip = document.getElementById(`m-file-${m.key}`);
+  if(fileChip){
+    fileChip.onclick = ()=> downloadStoredFile(rec.mandatory[m.key].file);
+  }
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      const d = dateEl.value, t = timeEl.value;
+      if(!d){ showToast('이수 날짜를 입력해주세요'); return; }
+      const existingFile = rec.mandatory[m.key] && rec.mandatory[m.key].file;
+      const newFile = await readFileInput(fileEl);
+      rec.mandatory[m.key] = {date:d, time:t, file: newFile || existingFile || null};
+      await saveRecord(nurse.id, year, rec);
+      showToast(`${m.label} 이수 정보가 저장되었습니다`);
+      renderNurseDetail();
+    };
+  }
+  const clearBtn = document.getElementById(`m-clear-${m.key}`);
+  if(clearBtn){
+    clearBtn.onclick = async ()=>{
+      rec.mandatory[m.key] = null;
+      await saveRecord(nurse.id, year, rec);
+      showToast('이수 기록을 삭제했습니다');
+      renderNurseDetail();
+    };
+  }
+}
+
+function renderRefresherBox(rec, nurseId){
+  const entries = rec.mandatory.refresher;
+  const showForm = !!state.showRefresherForm[nurseId];
+  return `
+    <div class="mand-box" style="grid-column:1/-1;">
+      <h3>보수교육 (공가처리용 — 여러 건 등록 가능)</h3>
+      <span class="status-chip ${entries.length>0?'done':'pending'}">${entries.length>0?`${entries.length}건 등록됨`:'미이수'}</span>
+      <div id="refresher-entries" style="margin-top:10px;">
+        ${entries.length===0?'<div class="small-muted">등록된 보수교육이 없습니다.</div>':
+          entries.map(e=>renderRefresherEntry(e)).join('')}
+      </div>
+      <button class="btn btn-ghost btn-sm" id="refresher-add-toggle" style="margin-top:10px;">${showForm?'입력 취소':'+ 보수교육 추가'}</button>
+      <div id="refresher-form-area">${showForm?renderRefresherForm():''}</div>
+    </div>
+  `;
+}
+function renderRefresherEntry(e){
+  return `
+    <div class="refresher-entry">
+      <div class="re-head">
+        <div>
+          <div class="re-title">${e.eduName || '(교육명 미입력)'}</div>
+          <div class="re-meta">이수일 ${e.date||'-'}${e.time?` · ${e.time}`:''} ${e.isOnline?'· 온라인':'· 집합/방문'}</div>
+        </div>
+        <button class="btn btn-danger btn-sm" data-del-refresher="${e.id}">삭제</button>
+      </div>
+      <div style="margin-top:8px;">
+        ${e.files && e.files.cert ? `<span class="file-chip" data-dl-refresher="${e.id}" data-file-kind="cert">📎 이수증</span>`:''}
+        ${e.files && e.files.detail ? `<span class="file-chip" data-dl-refresher="${e.id}" data-file-kind="detail">📎 상세내역</span>`:''}
+        ${e.files && e.files.receipt ? `<span class="file-chip" data-dl-refresher="${e.id}" data-file-kind="receipt">📎 영수증</span>`:''}
+      </div>
+    </div>
+  `;
+}
+function renderRefresherForm(){
+  return `
+    <div class="refresher-form">
+      <div class="row field-row">
+        <div>
+          <label>교육명</label>
+          <input type="text" id="rf-name" placeholder="예: 2026년 상반기 보수교육">
+        </div>
+        <div>
+          <label>이수 날짜</label>
+          <input type="date" id="rf-date">
+        </div>
+        <div>
+          <label>시간</label>
+          <input type="time" id="rf-time">
+        </div>
+      </div>
+      <div class="checkbox-row">
+        <input type="checkbox" id="rf-online">
+        <label for="rf-online" style="margin:0;">온라인으로 이수함 (당일 수강 상세내역 첨부 필요)</label>
+      </div>
+      <div class="field-row">
+        <label>이수증 첨부</label>
+        <input type="file" id="rf-file-cert" accept="image/*,application/pdf">
+        <button class="btn btn-ai btn-sm" id="rf-ai-btn" style="margin-top:6px;">📋 이수증으로 교육명·날짜 자동 인식</button>
+        <div class="hint">이미지 파일(JPG/PNG)만 자동 인식이 가능합니다. 인식 후 위 항목을 확인·수정해주세요.</div>
+      </div>
+      <div class="field-row" id="rf-detail-row" style="display:none;">
+        <label>상세내역 첨부 (온라인 당일 수강 확인용)</label>
+        <input type="file" id="rf-file-detail" accept="image/*,application/pdf">
+      </div>
+      <div class="field-row">
+        <label>영수증 첨부</label>
+        <input type="file" id="rf-file-receipt" accept="image/*,application/pdf">
+      </div>
+      <button class="btn btn-primary" id="rf-save-btn" style="width:100%;">보수교육 등록 저장</button>
+    </div>
+  `;
+}
+function bindRefresherBox(rec, nurse, year){
+  const toggleBtn = document.getElementById('refresher-add-toggle');
+  if(toggleBtn){
+    toggleBtn.onclick = ()=>{
+      state.showRefresherForm[nurse.id] = !state.showRefresherForm[nurse.id];
+      renderNurseDetail();
+    };
+  }
+  document.querySelectorAll('[data-del-refresher]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('삭제하시겠습니까?')) return;
+      rec.mandatory.refresher = rec.mandatory.refresher.filter(e=>e.id!==btn.dataset.delRefresher);
+      await saveRecord(nurse.id, year, rec);
+      renderNurseDetail();
+    };
+  });
+  document.querySelectorAll('[data-dl-refresher]').forEach(chip=>{
+    chip.onclick = ()=>{
+      const entry = rec.mandatory.refresher.find(e=>e.id===chip.dataset.dlRefresher);
+      if(entry) downloadStoredFile(entry.files[chip.dataset.fileKind]);
+    };
+  });
+
+  const onlineCb = document.getElementById('rf-online');
+  if(onlineCb){
+    onlineCb.onchange = ()=>{
+      document.getElementById('rf-detail-row').style.display = onlineCb.checked ? 'block' : 'none';
+    };
+  }
+  const aiBtn = document.getElementById('rf-ai-btn');
+  if(aiBtn){
+    aiBtn.onclick = async ()=>{
+      const fileInput = document.getElementById('rf-file-cert');
+      const fileObj = await readFileInput(fileInput);
+      if(!fileObj){ showToast('이수증 파일을 먼저 선택해주세요'); return; }
+      const result = await extractCertInfo(fileObj);
+      if(result){
+        if(result.education_name) document.getElementById('rf-name').value = result.education_name;
+        if(result.date) document.getElementById('rf-date').value = result.date;
+        showToast('자동 인식 완료. 내용을 확인해주세요.');
+      }
+    };
+  }
+  const saveBtn = document.getElementById('rf-save-btn');
+  if(saveBtn){
+    saveBtn.onclick = async ()=>{
+      const name = document.getElementById('rf-name').value.trim();
+      const date = document.getElementById('rf-date').value;
+      const time = document.getElementById('rf-time').value;
+      const isOnline = document.getElementById('rf-online').checked;
+      if(!name || !date){ showToast('교육명과 이수 날짜는 필수입니다'); return; }
+      const certFile = await readFileInput(document.getElementById('rf-file-cert'));
+      const detailFile = isOnline ? await readFileInput(document.getElementById('rf-file-detail')) : null;
+      const receiptFile = await readFileInput(document.getElementById('rf-file-receipt'));
+      if(isOnline && !detailFile){
+        if(!confirm('온라인 이수의 경우 당일 수강 상세내역 첨부를 권장합니다. 첨부 없이 저장할까요?')) return;
+      }
+      const entry = {
+        id: uid('rf'), eduName:name, date, time, isOnline,
+        files: {cert:certFile, detail:detailFile, receipt:receiptFile}
+      };
+      rec.mandatory.refresher.push(entry);
+      await saveRecord(nurse.id, year, rec);
+      state.showRefresherForm[nurse.id] = false;
+      showToast('보수교육이 등록되었습니다');
+      renderNurseDetail();
+    };
+  }
+}
+
+async function openHistoryModal(nurseId){
+  const nurse = state.nurses.find(n=>n.id===nurseId);
+  const root = document.getElementById('modal-root');
+  root.innerHTML = `<div class="modal-overlay" id="history-overlay"><div class="modal"><div class="loading">불러오는 중…</div></div></div>`;
+  document.getElementById('history-overlay').onclick = (e)=>{ if(e.target.id==='history-overlay') root.innerHTML=''; };
+
+  const all = await getAllRecordsForNurse(nurseId);
+  let rows = [];
+  all.forEach(({year, rec})=>{
+    Object.entries(rec.programs).forEach(([pid, info])=>{
+      const prog = state.programs.find(p=>p.id===pid);
+      rows.push({year, type:'단계교육', name: prog?prog.name:'(삭제된 프로그램)', date:info.date, time:info.time||''});
+    });
+    if(rec.mandatory.hospital && rec.mandatory.hospital.date){
+      rows.push({year, type:'필수교육', name:'병원 필수교육', date:rec.mandatory.hospital.date, time:rec.mandatory.hospital.time||''});
+    }
+    if(rec.mandatory.online && rec.mandatory.online.date){
+      rows.push({year, type:'필수교육', name:'온라인 특성화교육', date:rec.mandatory.online.date, time:rec.mandatory.online.time||''});
+    }
+    (rec.mandatory.refresher||[]).forEach(e=>{
+      rows.push({year, type:'보수교육', name:e.eduName, date:e.date, time:e.time||''});
+    });
+  });
+  rows.sort((a,b)=> b.year-a.year || (b.date||'').localeCompare(a.date||''));
+
+  const modal = document.querySelector('#history-overlay .modal');
+  modal.innerHTML = `
+    <div class="modal-head">
+      <h2>${nurse?nurse.name:''} 간호사 — 전체 교육 이력</h2>
+      <button class="btn btn-ghost btn-sm" id="history-close">닫기</button>
+    </div>
+    <button class="btn btn-primary btn-sm" id="history-export" style="margin-bottom:14px;">엑셀로 내보내기</button>
+    ${rows.length===0?'<div class="empty">등록된 이력이 없습니다.</div>':
+      `<table><thead><tr><th>연도</th><th>구분</th><th>교육명</th><th>날짜</th><th>시간</th></tr></thead>
+      <tbody>${rows.map(r=>`<tr><td>${r.year}</td><td>${r.type}</td><td>${r.name}</td><td>${r.date||'-'}</td><td>${r.time||'-'}</td></tr>`).join('')}</tbody></table>`}
+  `;
+  document.getElementById('history-close').onclick = ()=>{ document.getElementById('modal-root').innerHTML=''; };
+  document.getElementById('history-export').onclick = ()=>{
+    const aoa = [['연도','구분','교육명','날짜','시간'], ...rows.map(r=>[r.year, r.type, r.name, r.date||'', r.time||''])];
+    exportAOA(aoa, `${nurse?nurse.name:'nurse'}_교육이력.xlsx`);
+  };
+}
+
+/* ================= ADMIN MODE ================= */
+function renderAdminMode(){
+  const content = document.getElementById('content');
+  if(!state.adminUnlocked){
+    content.innerHTML = `
+      <div class="card login-box">
+        <div class="brand-mark" style="margin:0 auto 14px;">EN</div>
+        <h2 style="justify-content:center;">관리자 로그인</h2>
+        <input type="password" id="admin-pw" placeholder="관리자 비밀번호" style="margin-bottom:10px;">
+        <button class="btn btn-primary" id="admin-login-btn" style="width:100%;">로그인</button>
+        <p class="small-muted" style="margin-top:12px;">초기 비밀번호: 0000 (로그인 후 변경 가능)</p>
+      </div>
+    `;
+    document.getElementById('admin-login-btn').onclick = ()=>{
+      const v = document.getElementById('admin-pw').value;
+      if(v === state.adminPassword){ state.adminUnlocked = true; render(); }
+      else showToast('비밀번호가 일치하지 않습니다');
+    };
+    return;
+  }
+
+  content.innerHTML = `
+    <div class="tabs">
+      <button data-tab="roster" class="${state.adminTab==='roster'?'active':''}">간호사 명단</button>
+      <button data-tab="levels" class="${state.adminTab==='levels'?'active':''}">단계 설정</button>
+      <button data-tab="programs" class="${state.adminTab==='programs'?'active':''}">교육 프로그램</button>
+      <button data-tab="byNurse" class="${state.adminTab==='byNurse'?'active':''}">간호사별 이수현황</button>
+      <button data-tab="byProgram" class="${state.adminTab==='byProgram'?'active':''}">교육별 이수현황</button>
+      <button data-tab="refresherDocs" class="${state.adminTab==='refresherDocs'?'active':''}">보수교육 자료 모아보기</button>
+      <button data-tab="settings" class="${state.adminTab==='settings'?'active':''}">설정</button>
+    </div>
+    <div id="admin-panel"></div>
+  `;
+  content.querySelectorAll('.tabs button').forEach(b=>{
+    b.onclick = ()=>{ state.adminTab = b.dataset.tab; render(); };
+  });
+
+  const panel = document.getElementById('admin-panel');
+  if(state.adminTab==='roster') renderRosterPanel(panel);
+  else if(state.adminTab==='levels') renderLevelsPanel(panel);
+  else if(state.adminTab==='programs') renderProgramsPanel(panel);
+  else if(state.adminTab==='byNurse') renderByNursePanel(panel);
+  else if(state.adminTab==='byProgram') renderByProgramPanel(panel);
+  else if(state.adminTab==='refresherDocs') renderRefresherDocsPanel(panel);
+  else if(state.adminTab==='settings') renderSettingsPanel(panel);
+}
+
+function renderRosterPanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">등록</span> 간호사 추가</h2>
+      <div class="inline-form">
+        <input type="text" id="new-nurse-name" placeholder="이름">
+        <input type="date" id="new-nurse-hire" placeholder="입사일">
+        <button class="btn btn-primary" id="add-nurse-btn">추가</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span class="tag">명단</span> 전체 간호사 (${state.nurses.length}명)</h2>
+      ${state.nurses.length===0?'<div class="empty">등록된 간호사가 없습니다.</div>':
+        state.nurses.map(n=>`
+          <div class="list-row">
+            <div class="meta">${n.name}<div class="sub">입사일 ${n.hireDate||'미등록'}</div></div>
+            <button class="btn btn-ghost btn-sm" data-hist="${n.id}">이력보기</button>
+            <button class="btn btn-danger btn-sm" data-del="${n.id}">삭제</button>
+          </div>
+        `).join('')}
+    </div>
+  `;
+  document.getElementById('add-nurse-btn').onclick = async ()=>{
+    const name = document.getElementById('new-nurse-name').value.trim();
+    const hire = document.getElementById('new-nurse-hire').value;
+    if(!name){ showToast('이름을 입력해주세요'); return; }
+    state.nurses.push({id:uid('n'), name, hireDate:hire});
+    await safeSet('nurses', state.nurses, true);
+    showToast('간호사가 등록되었습니다');
+    render();
+  };
+  panel.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('정말 삭제하시겠습니까?')) return;
+      state.nurses = state.nurses.filter(n=>n.id!==btn.dataset.del);
+      await safeSet('nurses', state.nurses, true);
+      render();
+    };
+  });
+  panel.querySelectorAll('[data-hist]').forEach(btn=>{
+    btn.onclick = ()=> openHistoryModal(btn.dataset.hist);
+  });
+}
+
+function renderLevelsPanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">등록</span> 단계 추가</h2>
+      <div class="inline-form">
+        <input type="text" id="new-lv-label" placeholder="단계명 (예: 1단계, 1년 미만)">
+        <input type="number" id="new-lv-min" placeholder="최소 연차" step="0.1">
+        <input type="number" id="new-lv-max" placeholder="최대 연차 (비우면 이상)" step="0.1">
+        <button class="btn btn-primary" id="add-lv-btn">추가</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span class="tag">설정</span> 등록된 단계 (${state.levels.length}개)</h2>
+      ${state.levels.length===0?'<div class="empty">등록된 단계가 없습니다.</div>':
+        [...state.levels].sort((a,b)=>a.minYears-b.minYears).map(lv=>`
+          <div class="list-row">
+            <div class="meta">${lv.label}<div class="sub">${lv.minYears}년 이상 ${ (lv.maxYears===null||lv.maxYears===undefined)?'':`~ ${lv.maxYears}년 미만`}</div></div>
+            <button class="btn btn-danger btn-sm" data-del="${lv.id}">삭제</button>
+          </div>
+        `).join('')}
+    </div>
+  `;
+  document.getElementById('add-lv-btn').onclick = async ()=>{
+    const label = document.getElementById('new-lv-label').value.trim();
+    const minV = document.getElementById('new-lv-min').value;
+    const maxV = document.getElementById('new-lv-max').value;
+    if(!label || minV===''){ showToast('단계명과 최소 연차를 입력해주세요'); return; }
+    state.levels.push({id:uid('lv'), label, minYears:parseFloat(minV), maxYears: maxV===''?null:parseFloat(maxV)});
+    await safeSet('levels', state.levels, true);
+    showToast('단계가 추가되었습니다');
+    render();
+  };
+  panel.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('이 단계를 삭제하면 연결된 프로그램도 더 이상 표시되지 않습니다. 삭제하시겠습니까?')) return;
+      state.levels = state.levels.filter(l=>l.id!==btn.dataset.del);
+      await safeSet('levels', state.levels, true);
+      render();
+    };
+  });
+}
+
+function renderProgramsPanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">등록</span> 교육 프로그램 추가</h2>
+      <div class="row" style="margin-bottom:10px;">
+        <div>
+          <label>적용 단계</label>
+          <select id="new-prog-level">
+            ${state.levels.map(lv=>`<option value="${lv.id}">${lv.label}</option>`).join('')}
+          </select>
+        </div>
+        <div>
+          <label>프로그램명</label>
+          <input type="text" id="new-prog-name" placeholder="예: 심폐소생술 교육">
+        </div>
+        <div>
+          <label>별점</label>
+          <select id="new-prog-stars">
+            <option value="1">★ 1개</option>
+            <option value="2">★ 2개</option>
+          </select>
+        </div>
+      </div>
+      <button class="btn btn-primary" id="add-prog-btn">추가</button>
+    </div>
+    <div class="card">
+      <h2><span class="tag">목록</span> 등록된 프로그램 (${state.programs.length}개)</h2>
+      ${state.levels.map(lv=>{
+        const ps = state.programs.filter(p=>p.levelId===lv.id);
+        return `
+          <div style="margin-bottom:14px;">
+            <div style="font-weight:700;font-size:13.5px;margin-bottom:6px;color:var(--teal-700);">${lv.label}</div>
+            ${ps.length===0?'<div class="small-muted" style="padding-left:4px;">등록된 프로그램 없음</div>':
+              ps.map(p=>`
+                <div class="list-row">
+                  <div class="meta">${p.name} <span class="prog-stars" style="display:inline-flex;vertical-align:middle;">${Array.from({length:p.stars}).map(()=>miniStarSVG(true)).join('')}</span></div>
+                  <button class="btn btn-danger btn-sm" data-del="${p.id}">삭제</button>
+                </div>
+              `).join('')}
+          </div>
+        `;
+      }).join('')}
+    </div>
+  `;
+  document.getElementById('add-prog-btn').onclick = async ()=>{
+    const levelId = document.getElementById('new-prog-level').value;
+    const name = document.getElementById('new-prog-name').value.trim();
+    const stars = parseInt(document.getElementById('new-prog-stars').value);
+    if(!levelId || !name){ showToast('단계와 프로그램명을 입력해주세요'); return; }
+    state.programs.push({id:uid('pg'), levelId, name, stars});
+    await safeSet('programs', state.programs, true);
+    showToast('프로그램이 추가되었습니다');
+    render();
+  };
+  panel.querySelectorAll('[data-del]').forEach(btn=>{
+    btn.onclick = async ()=>{
+      if(!confirm('삭제하시겠습니까?')) return;
+      state.programs = state.programs.filter(p=>p.id!==btn.dataset.del);
+      await safeSet('programs', state.programs, true);
+      render();
+    };
+  });
+}
+
+async function renderByNursePanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">조회</span> 간호사별 이수현황 <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" id="export-bynurse-btn">엑셀로 내보내기</button>
+      </h2>
+      <div class="row" style="margin-bottom:6px;">
+        <div>
+          <label>연도</label>
+          <select id="admin-year-select">
+            ${yearOptions().map(y=>`<option value="${y}" ${y===state.selectedYear?'selected':''}>${y}년</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="by-nurse-table" class="card"><div class="loading">불러오는 중…</div></div>
+  `;
+  document.getElementById('admin-year-select').onchange = (e)=>{ state.selectedYear = parseInt(e.target.value); renderByNurseTable(); };
+  renderByNurseTable();
+}
+
+let lastByNurseRows = [];
+async function renderByNurseTable(){
+  const target = document.getElementById('by-nurse-table');
+  if(!target) return;
+  const year = state.selectedYear;
+  const rows = [];
+  for(const n of state.nurses){
+    const yrs = yearsOfService(n.hireDate, year);
+    const level = levelForYears(state.levels, yrs);
+    const levelPrograms = level ? state.programs.filter(p=>p.levelId===level.id) : [];
+    const rec = await getRecord(n.id, year);
+    let stars = 0;
+    levelPrograms.forEach(p=>{ if(rec.programs[p.id] && rec.programs[p.id].date) stars += p.stars; });
+    const mandatoryDone = (rec.mandatory.hospital&&rec.mandatory.hospital.date?1:0) + (rec.mandatory.online&&rec.mandatory.online.date?1:0) + (rec.mandatory.refresher.length>0?1:0);
+    rows.push({n, level, stars, mandatoryDone, refresherCount: rec.mandatory.refresher.length});
+  }
+  lastByNurseRows = rows;
+  if(rows.length===0){ target.innerHTML = '<div class="empty">등록된 간호사가 없습니다.</div>'; return; }
+  target.innerHTML = `
+    <table>
+      <thead><tr><th>이름</th><th>단계</th><th>단계교육 (별)</th><th>필수교육</th><th>보수교육 건수</th><th>상태</th></tr></thead>
+      <tbody>
+        ${rows.map(r=>`
+          <tr>
+            <td>${r.n.name}</td>
+            <td>${r.level?r.level.label:'-'}</td>
+            <td>${r.stars} / ${STAR_GOAL}</td>
+            <td>${r.mandatoryDone} / 3</td>
+            <td>${r.refresherCount}건</td>
+            <td>
+              <span class="status-chip ${r.stars>=STAR_GOAL?'done':'pending'}">단계${r.stars>=STAR_GOAL?'완료':'진행중'}</span>
+              <span class="status-chip ${r.mandatoryDone>=3?'done':'pending'}">필수${r.mandatoryDone>=3?'완료':'진행중'}</span>
+            </td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+  const exportBtn = document.getElementById('export-bynurse-btn');
+  if(exportBtn){
+    exportBtn.onclick = ()=>{
+      const aoa = [['이름','단계','단계교육(별)','단계교육목표','필수교육 완료','보수교육 건수'],
+        ...lastByNurseRows.map(r=>[r.n.name, r.level?r.level.label:'-', r.stars, STAR_GOAL, `${r.mandatoryDone}/3`, r.refresherCount])];
+      exportAOA(aoa, `${year}년_간호사별_이수현황.xlsx`);
+    };
+  }
+}
+
+async function renderByProgramPanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">조회</span> 교육별 이수현황</h2>
+      <div class="row" style="margin-bottom:6px;">
+        <div>
+          <label>연도</label>
+          <select id="admin-year-select-2">
+            ${yearOptions().map(y=>`<option value="${y}" ${y===state.selectedYear?'selected':''}>${y}년</option>`).join('')}
+          </select>
+        </div>
+      </div>
+    </div>
+    <div id="by-program-list"><div class="loading">불러오는 중…</div></div>
+  `;
+  document.getElementById('admin-year-select-2').onchange = (e)=>{ state.selectedYear = parseInt(e.target.value); renderByProgramList(); };
+  renderByProgramList();
+}
+
+async function renderByProgramList(){
+  const target = document.getElementById('by-program-list');
+  if(!target) return;
+  const year = state.selectedYear;
+  for(const n of state.nurses){ await getRecord(n.id, year); }
+
+  let html = '';
+  html += `<div class="card"><h2><span class="tag">필수교육</span> 이수 현황</h2>`;
+  MANDATORY_SIMPLE.forEach(m=>{
+    const completed = state.nurses.filter(n=>{
+      const rec = state.recordsCache[`${n.id}:${year}`];
+      return rec && rec.mandatory[m.key] && rec.mandatory[m.key].date;
+    });
+    html += `
+      <div style="margin-bottom:14px;">
+        <div style="font-weight:700;font-size:13.5px;margin-bottom:6px;color:var(--teal-700);">${m.label} — ${completed.length} / ${state.nurses.length}명 완료</div>
+        ${completed.length===0?'<div class="small-muted">완료자 없음</div>':
+          `<table><thead><tr><th>이름</th><th>이수일</th><th>시간</th></tr></thead><tbody>
+            ${completed.map(n=>{
+              const info = state.recordsCache[`${n.id}:${year}`].mandatory[m.key];
+              return `<tr><td>${n.name}</td><td>${info.date}</td><td>${info.time||'-'}</td></tr>`;
+            }).join('')}
+          </tbody></table>`}
+      </div>
+    `;
+  });
+  html += `</div>`;
+
+  html += `<div class="card"><h2><span class="tag">단계별 프로그램</span> 이수 현황</h2>`;
+  if(state.programs.length===0){
+    html += '<div class="empty">등록된 프로그램이 없습니다.</div>';
+  } else {
+    state.levels.forEach(lv=>{
+      const ps = state.programs.filter(p=>p.levelId===lv.id);
+      if(ps.length===0) return;
+      html += `<div style="margin:10px 0 4px;font-weight:700;font-size:13px;color:var(--muted);">${lv.label}</div>`;
+      ps.forEach(p=>{
+        const completed = state.nurses.filter(n=>{
+          const rec = state.recordsCache[`${n.id}:${year}`];
+          return rec && rec.programs[p.id] && rec.programs[p.id].date;
+        });
+        html += `
+          <div style="margin-bottom:14px;">
+            <div style="font-weight:600;font-size:13.5px;margin-bottom:6px;">${p.name} <span class="small-muted">(★${p.stars}) — ${completed.length} / ${state.nurses.length}명 완료</span></div>
+            ${completed.length===0?'<div class="small-muted">완료자 없음</div>':
+              `<table><thead><tr><th>이름</th><th>이수일</th><th>시간</th></tr></thead><tbody>
+                ${completed.map(n=>{
+                  const info = state.recordsCache[`${n.id}:${year}`].programs[p.id];
+                  return `<tr><td>${n.name}</td><td>${info.date}</td><td>${info.time||'-'}</td></tr>`;
+                }).join('')}
+              </tbody></table>`}
+          </div>
+        `;
+      });
+    });
+  }
+  html += `</div>`;
+  target.innerHTML = html;
+}
+
+async function renderRefresherDocsPanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">제출 자료</span> 보수교육 모아보기 <span class="spacer"></span>
+        <button class="btn btn-primary btn-sm" id="export-refresher-btn">엑셀로 내보내기</button>
+      </h2>
+      <div class="row" style="margin-bottom:6px;">
+        <div>
+          <label>연도</label>
+          <select id="admin-year-select-3">
+            ${yearOptions().map(y=>`<option value="${y}" ${y===state.selectedYear?'selected':''}>${y}년</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <p class="small-muted" style="margin-top:6px;">간호사들이 등록한 보수교육 이수증·상세내역·영수증을 한 번에 모아 다운로드할 수 있습니다.</p>
+    </div>
+    <div id="refresher-docs-table"><div class="loading">불러오는 중…</div></div>
+  `;
+  document.getElementById('admin-year-select-3').onchange = (e)=>{ state.selectedYear = parseInt(e.target.value); renderRefresherDocsTable(); };
+  renderRefresherDocsTable();
+}
+
+let lastRefresherRows = [];
+async function renderRefresherDocsTable(){
+  const target = document.getElementById('refresher-docs-table');
+  if(!target) return;
+  const year = state.selectedYear;
+  const rows = [];
+  for(const n of state.nurses){
+    const rec = await getRecord(n.id, year);
+    (rec.mandatory.refresher||[]).forEach(e=>{
+      rows.push({nurseName:n.name, nurseId:n.id, ...e});
+    });
+  }
+  lastRefresherRows = rows;
+  target.innerHTML = `
+    <div class="card">
+      ${rows.length===0?'<div class="empty">등록된 보수교육 자료가 없습니다.</div>':
+        `<table>
+          <thead><tr><th>이름</th><th>교육명</th><th>이수일</th><th>방식</th><th>첨부자료</th></tr></thead>
+          <tbody>
+            ${rows.map((r,i)=>`
+              <tr>
+                <td>${r.nurseName}</td>
+                <td>${r.eduName}</td>
+                <td>${r.date}${r.time?` ${r.time}`:''}</td>
+                <td>${r.isOnline?'온라인':'집합/방문'}</td>
+                <td>
+                  ${r.files && r.files.cert ? `<span class="file-chip" data-idx="${i}" data-kind="cert">📎 이수증</span>`:'<span class="small-muted">이수증 없음</span>'}
+                  ${r.files && r.files.detail ? `<span class="file-chip" data-idx="${i}" data-kind="detail">📎 상세내역</span>`:(r.isOnline?'<span class="status-chip warn">상세내역 없음</span>':'')}
+                  ${r.files && r.files.receipt ? `<span class="file-chip" data-idx="${i}" data-kind="receipt">📎 영수증</span>`:'<span class="small-muted">영수증 없음</span>'}
+                </td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>`}
+    </div>
+  `;
+  target.querySelectorAll('[data-idx]').forEach(chip=>{
+    chip.onclick = ()=>{
+      const r = lastRefresherRows[parseInt(chip.dataset.idx)];
+      if(r) downloadStoredFile(r.files[chip.dataset.kind]);
+    };
+  });
+  const exportBtn = document.getElementById('export-refresher-btn');
+  if(exportBtn){
+    exportBtn.onclick = ()=>{
+      const aoa = [['이름','교육명','이수일','시간','방식','이수증 첨부','상세내역 첨부','영수증 첨부'],
+        ...lastRefresherRows.map(r=>[r.nurseName, r.eduName, r.date, r.time||'', r.isOnline?'온라인':'집합/방문',
+          r.files&&r.files.cert?'O':'X', r.files&&r.files.detail?'O':'X', r.files&&r.files.receipt?'O':'X'])];
+      exportAOA(aoa, `${year}년_보수교육_제출자료.xlsx`);
+    };
+  }
+}
+
+function renderSettingsPanel(panel){
+  panel.innerHTML = `
+    <div class="card">
+      <h2><span class="tag">설정</span> 관리자 비밀번호 변경</h2>
+      <div class="inline-form">
+        <input type="password" id="new-admin-pw" placeholder="새 비밀번호">
+        <button class="btn btn-primary" id="change-pw-btn">변경</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2><span class="tag">로그아웃</span></h2>
+      <button class="btn btn-ghost" id="admin-logout-btn">관리자 로그아웃</button>
+    </div>
+  `;
+  document.getElementById('change-pw-btn').onclick = async ()=>{
+    const v = document.getElementById('new-admin-pw').value;
+    if(!v){ showToast('새 비밀번호를 입력해주세요'); return; }
+    state.adminPassword = v;
+    await safeSet('admin_password', v, true);
+    showToast('비밀번호가 변경되었습니다');
+  };
+  document.getElementById('admin-logout-btn').onclick = ()=>{
+    state.adminUnlocked = false;
+    render();
+  };
+}
+
+(async function init(){
+  await loadAll();
+  render();
+})();
+</script>
+</body>
+</html>
