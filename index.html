@@ -165,9 +165,9 @@
   .login-box .brand-mark{margin:0 auto 14px;}
   .inline-form{display:flex;gap:8px;margin-bottom:14px;flex-wrap:wrap;}
   .inline-form > *{flex:1;min-width:110px;}
-  .list-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);}
+  .list-row{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--line);flex-wrap:wrap;}
   .list-row:last-child{border-bottom:none;}
-  .list-row .meta{flex:1;font-size:13.5px;}
+  .list-row .meta{flex:1;font-size:13.5px;min-width:140px;}
   .list-row .meta .sub{font-size:12px;color:var(--muted);margin-top:2px;}
   .toast{
     position:fixed;bottom:24px;left:50%;transform:translateX(-50%);
@@ -195,6 +195,14 @@
   .modal-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
   .modal-head h2{margin:0;font-size:16px;}
 
+  .level-group{margin-bottom:6px;}
+  .level-group-head{
+    display:flex;align-items:center;gap:8px;font-size:13px;font-weight:700;color:var(--muted);
+    padding:10px 0 6px;border-top:1px solid var(--line);
+  }
+  .level-group:first-child .level-group-head{border-top:none;padding-top:0;}
+  .level-note{font-size:12px;color:var(--muted);margin-top:-6px;margin-bottom:14px;}
+
   @media (max-width:560px){
     .id-badge{flex-direction:column;align-items:flex-start;}
     .prog-item{flex-direction:column;align-items:flex-start;}
@@ -208,8 +216,34 @@
 <div class="toast" id="toast"></div>
 <div id="modal-root"></div>
 
-<script>
-/* 고유 저장소 환경 에러 수정을 위해 범용적인 브라우저 localStorage 기반으로 변경 */
+<script type="module">
+/* ====================== Firebase 설정 ======================
+   아래 firebaseConfig 값을 본인의 Firebase 프로젝트 설정값으로 교체하세요.
+   (Firebase 콘솔 > 프로젝트 설정 > 내 앱 > 웹 앱에서 확인)
+   ============================================================ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import {
+  getFirestore, doc as fbDoc, getDoc as fbGetDoc, setDoc as fbSetDoc,
+  collection as fbCollection, getDocs as fbGetDocs, query as fbQuery, where as fbWhere
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import {
+  getStorage, ref as fbStorageRef, uploadBytes as fbUploadBytes, getDownloadURL as fbGetDownloadURL
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-storage.js";
+
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+  projectId: "YOUR_PROJECT_ID",
+  storageBucket: "YOUR_PROJECT_ID.appspot.com",
+  messagingSenderId: "YOUR_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
+
+const fbApp = initializeApp(firebaseConfig);
+const db = getFirestore(fbApp);
+const storage = getStorage(fbApp);
+/* ============================================================ */
+
 const CURRENT_YEAR = new Date().getFullYear();
 const TRACKING_START_YEAR = 2025;
 const MANDATORY_SIMPLE = [
@@ -243,30 +277,28 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'), 2000);
 }
 
-/* 브라우저용 로컬 스토리지 데이터 입출력 함수 */
+/* ---------- Firebase 연동 데이터 입출력 함수 ---------- */
+function sanitizeDocId(key){ return key.replace(/[\/]/g, '_'); }
+
 async function safeGet(key, shared){
   try{
-    const val = localStorage.getItem(key);
-    return val ? { value: JSON.parse(val) } : null;
-  }catch(e){ return null; }
+    const snap = await fbGetDoc(fbDoc(db, 'kv', sanitizeDocId(key)));
+    return snap.exists() ? { value: snap.data().value } : null;
+  }catch(e){ console.error(e); showToast('데이터를 불러오지 못했습니다 (Firebase 설정을 확인해주세요)'); return null; }
 }
 async function safeSet(key, value, shared){
-  try{ 
-    localStorage.setItem(key, JSON.stringify(value));
+  try{
+    await fbSetDoc(fbDoc(db, 'kv', sanitizeDocId(key)), { key, value });
     return true;
-  }
-  catch(e){ console.error(e); showToast('저장 공간이 부족합니다 (첨부파일 용량을 줄여보세요)'); return null; }
+  }catch(e){ console.error(e); showToast('저장 중 오류가 발생했습니다 (Firebase 설정을 확인해주세요)'); return null; }
 }
 async function safeList(prefix, shared){
-  try{ 
-    const keys = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      if (localStorage.key(i).startsWith(prefix)) {
-        keys.push(localStorage.key(i));
-      }
-    }
-    return { keys };
-  }catch(e){ return null; }
+  try{
+    const end = prefix + '\uf8ff';
+    const q = fbQuery(fbCollection(db, 'kv'), fbWhere('key', '>=', prefix), fbWhere('key', '<', end));
+    const snap = await fbGetDocs(q);
+    return { keys: snap.docs.map(d => d.data().key) };
+  }catch(e){ console.error(e); return null; }
 }
 
 function starSVG(filled){
@@ -297,13 +329,21 @@ function levelForYears(levels, yrs){
   return sorted.length ? sorted[sorted.length-1] : null;
 }
 
+/* 입사일 기준 자동계산 + 관리자가 지정한 수동 단계를 함께 고려 */
+function getEffectiveLevel(nurse, year){
+  const yrs = yearsOfService(nurse.hireDate, year);
+  const autoLevel = levelForYears(state.levels, yrs);
+  const manualLevel = nurse.manualLevelId ? state.levels.find(l=>l.id===nurse.manualLevelId) : null;
+  return { effective: manualLevel || autoLevel, auto: autoLevel, isManual: !!manualLevel, yrs };
+}
+
 function yearOptions(){
   const arr=[];
   for(let y=CURRENT_YEAR+1; y>=TRACKING_START_YEAR-3; y--) arr.push(y);
   return arr;
 }
 
-/* ---------- file helpers ---------- */
+/* ---------- file helpers (Firebase Storage 업로드) ---------- */
 function fileToBase64(file){
   return new Promise((resolve,reject)=>{
     const reader = new FileReader();
@@ -312,7 +352,28 @@ function fileToBase64(file){
     reader.readAsDataURL(file);
   });
 }
-async function readFileInput(inputEl){
+// 실제 저장용: Storage에 업로드하고 다운로드 URL을 받아온다
+async function readFileInput(inputEl, pathPrefix){
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return null;
+  if(file.size > MAX_FILE_BYTES){
+    showToast('파일 용량은 3MB 이하만 첨부할 수 있습니다');
+    return null;
+  }
+  try{
+    const path = `${pathPrefix}/${Date.now()}_${file.name}`;
+    const sref = fbStorageRef(storage, path);
+    await fbUploadBytes(sref, file);
+    const url = await fbGetDownloadURL(sref);
+    return { name:file.name, mime:file.type || 'application/octet-stream', url };
+  }catch(e){
+    console.error(e);
+    showToast('파일 업로드에 실패했습니다 (Firebase Storage 설정을 확인해주세요)');
+    return null;
+  }
+}
+// AI 자동 인식용: 업로드 없이 base64만 즉시 추출
+async function fileInputToBase64(inputEl){
   const file = inputEl.files && inputEl.files[0];
   if(!file) return null;
   if(file.size > MAX_FILE_BYTES){
@@ -323,13 +384,8 @@ async function readFileInput(inputEl){
   return {name:file.name, mime:file.type || 'application/octet-stream', data};
 }
 function downloadStoredFile(fileObj){
-  if(!fileObj) return;
-  const link = document.createElement('a');
-  link.href = `data:${fileObj.mime};base64,${fileObj.data}`;
-  link.download = fileObj.name;
-  document.body.appendChild(link);
-  link.click();
-  link.remove();
+  if(!fileObj || !fileObj.url) return;
+  window.open(fileObj.url, '_blank');
 }
 
 /* ---------- AI auto-extract ---------- */
@@ -513,26 +569,38 @@ async function renderNurseDetail(){
   if(!nurse){ wrap.innerHTML=''; return; }
   wrap.innerHTML = `<div class="loading">불러오는 중…</div>`;
   const year = state.selectedYear;
-  const yrs = yearsOfService(nurse.hireDate, year);
-  const level = levelForYears(state.levels, yrs);
-  const levelPrograms = level ? state.programs.filter(p=>p.levelId===level.id) : [];
+  const { effective: level, auto: autoLevel, isManual, yrs } = getEffectiveLevel(nurse, year);
   const rec = await getRecord(nurse.id, year);
 
+  // 별점은 단계 구분 없이 이수한 모든 프로그램을 합산 (단계는 권장 안내일 뿐 강제 아님)
   let totalStars = 0;
-  levelPrograms.forEach(p=>{ if(rec.programs[p.id] && rec.programs[p.id].date) totalStars += p.stars; });
+  state.programs.forEach(p=>{ if(rec.programs[p.id] && rec.programs[p.id].date) totalStars += p.stars; });
 
   const refresherCount = rec.mandatory.refresher.length;
   const mandatoryDone = (rec.mandatory.hospital && rec.mandatory.hospital.date ? 1:0)
     + (rec.mandatory.online && rec.mandatory.online.date ? 1:0)
     + (refresherCount>0 ? 1:0);
 
-  // duplicate flags (compute in parallel)
+  // duplicate flags (compute in parallel) - 모든 프로그램 대상
   const dupFlags = {};
-  await Promise.all(levelPrograms.map(async p=>{
+  await Promise.all(state.programs.map(async p=>{
     if(rec.programs[p.id] && rec.programs[p.id].date) return; 
     const dup = await findDuplicateProgram(nurse.id, p.id, year);
     if(dup) dupFlags[p.id] = dup;
   }));
+
+  const sortedLevels = [...state.levels].sort((a,b)=>a.minYears-b.minYears);
+  const levelGroupsHtml = sortedLevels.map(lv=>{
+    const ps = state.programs.filter(p=>p.levelId===lv.id);
+    if(ps.length===0) return '';
+    const isRecommended = level && lv.id===level.id;
+    return `
+      <div class="level-group">
+        <div class="level-group-head">${lv.label} ${isRecommended?'<span class="status-chip done">내 단계 추천</span>':''}</div>
+        ${ps.map(p=>renderProgramRow(p, rec, dupFlags[p.id])).join('')}
+      </div>
+    `;
+  }).join('');
 
   wrap.innerHTML = `
     <div class="id-badge">
@@ -541,20 +609,21 @@ async function renderNurseDetail(){
         <p>입사일 ${nurse.hireDate || '미등록'} · ${year}년 기준 ${yrs.toFixed(1)}년차</p>
       </div>
       <div class="actions">
-        <span class="level-pill">${level ? level.label : '단계 미지정'}</span>
+        <span class="level-pill">${level ? level.label : '단계 미지정'}${isManual?' (수동 설정)':''}</span>
         <button class="badge-link" id="show-history-btn">전체 이력 보기</button>
       </div>
     </div>
+    ${isManual && autoLevel && autoLevel.id!==level.id ? `<p class="level-note">※ 입사일 기준 자동 계산 추천 단계는 <b>${autoLevel.label}</b>이지만, 관리자가 <b>${level.label}</b>(으)로 직접 설정했습니다.</p>` : ''}
 
     <div class="card">
-      <h2><span class="tag">${year}년 목표</span> 단계별 교육 (별 ${STAR_GOAL}개)</h2>
+      <h2><span class="tag">${year}년 목표</span> 교육 이수 (별 ${STAR_GOAL}개)</h2>
+      <p class="small-muted" style="margin-top:-8px;margin-bottom:14px;">단계는 권장 안내이며, 본인 단계보다 높거나 낮은 단계의 교육도 자유롭게 들을 수 있습니다. 어떤 단계든 이수하면 목표 별 개수에 합산됩니다.</p>
       <div class="star-progress" style="margin-bottom:16px;">
         <div class="stars">${[1,2,3,4,5].map(i=>starSVG(totalStars>=i)).join('')}</div>
         <div class="star-label"><b>${totalStars} / ${STAR_GOAL}</b> 개 달성 ${totalStars>STAR_GOAL?`<span class="small-muted">(목표 초과 ${totalStars-STAR_GOAL}개)</span>`:''}</div>
       </div>
       <div id="program-list">
-        ${levelPrograms.length===0 ? '<div class="empty">현재 단계에 등록된 교육 프로그램이 없습니다.<br/>관리자에게 프로그램 등록을 요청하세요.</div>' :
-          levelPrograms.map(p=>renderProgramRow(p, rec, dupFlags[p.id])).join('')}
+        ${state.programs.length===0 ? '<div class="empty">등록된 교육 프로그램이 없습니다.<br/>관리자에게 프로그램 등록을 요청하세요.</div>' : levelGroupsHtml}
       </div>
     </div>
 
@@ -572,7 +641,7 @@ async function renderNurseDetail(){
 
   document.getElementById('show-history-btn').onclick = ()=> openHistoryModal(nurse.id);
 
-  levelPrograms.forEach(p=>{
+  state.programs.forEach(p=>{
     bindProgramRow(p, rec, nurse, year);
   });
 
@@ -669,7 +738,7 @@ function bindSimpleMandatory(m, rec, nurse, year){
       const d = dateEl.value, t = timeEl.value;
       if(!d){ showToast('이수 날짜를 입력해주세요'); return; }
       const existingFile = rec.mandatory[m.key] && rec.mandatory[m.key].file;
-      const newFile = await readFileInput(fileEl);
+      const newFile = await readFileInput(fileEl, `mandatory/${nurse.id}/${year}/${m.key}`);
       rec.mandatory[m.key] = {date:d, time:t, file: newFile || existingFile || null};
       await saveRecord(nurse.id, year, rec);
       showToast(`${m.label} 이수 정보가 저장되었습니다`);
@@ -793,7 +862,7 @@ function bindRefresherBox(rec, nurse, year){
   if(aiBtn){
     aiBtn.onclick = async ()=>{
       const fileInput = document.getElementById('rf-file-cert');
-      const fileObj = await readFileInput(fileInput);
+      const fileObj = await fileInputToBase64(fileInput);
       if(!fileObj){ showToast('이수증 파일을 먼저 선택해주세요'); return; }
       const result = await extractCertInfo(fileObj);
       if(result){
@@ -811,9 +880,9 @@ function bindRefresherBox(rec, nurse, year){
       const time = document.getElementById('rf-time').value;
       const isOnline = document.getElementById('rf-online').checked;
       if(!name || !date){ showToast('교육명과 이수 날짜는 필수입니다'); return; }
-      const certFile = await readFileInput(document.getElementById('rf-file-cert'));
-      const detailFile = isOnline ? await readFileInput(document.getElementById('rf-file-detail')) : null;
-      const receiptFile = await readFileInput(document.getElementById('rf-file-receipt'));
+      const certFile = await readFileInput(document.getElementById('rf-file-cert'), `refresher/${nurse.id}/${year}/cert`);
+      const detailFile = isOnline ? await readFileInput(document.getElementById('rf-file-detail'), `refresher/${nurse.id}/${year}/detail`) : null;
+      const receiptFile = await readFileInput(document.getElementById('rf-file-receipt'), `refresher/${nurse.id}/${year}/receipt`);
       if(isOnline && !detailFile){
         if(!confirm('온라인 이수의 경우 당일 수강 상세내역 첨부를 권장합니다. 첨부 없이 저장할까요?')) return;
       }
@@ -932,21 +1001,28 @@ function renderRosterPanel(panel){
     </div>
     <div class="card">
       <h2><span class="tag">명단</span> 전체 간호사 (${state.nurses.length}명)</h2>
+      <p class="small-muted" style="margin-top:-8px;margin-bottom:14px;">단계는 입사일 기준으로 자동 계산되지만, 실제 경력 산정 기준(예: 만 나이가 아닌 입사연도 기준)이 다르면 아래에서 단계를 직접 지정할 수 있습니다.</p>
       ${state.nurses.length===0?'<div class="empty">등록된 간호사가 없습니다.</div>':
-        state.nurses.map(n=>`
+        state.nurses.map(n=>{
+          const {effective, auto, isManual} = getEffectiveLevel(n, state.selectedYear);
+          return `
           <div class="list-row">
-            <div class="meta">${n.name}<div class="sub">입사일 ${n.hireDate||'미등록'}</div></div>
+            <div class="meta">${n.name}<div class="sub">입사일 ${n.hireDate||'미등록'} · 자동계산 단계: ${auto?auto.label:'-'}</div></div>
+            <select data-setlevel="${n.id}" style="max-width:190px;">
+              <option value="">자동 (입사일 기준)</option>
+              ${state.levels.map(lv=>`<option value="${lv.id}" ${n.manualLevelId===lv.id?'selected':''}>${lv.label}</option>`).join('')}
+            </select>
             <button class="btn btn-ghost btn-sm" data-hist="${n.id}">이력보기</button>
             <button class="btn btn-danger btn-sm" data-del="${n.id}">삭제</button>
           </div>
-        `).join('')}
+        `;}).join('')}
     </div>
   `;
   document.getElementById('add-nurse-btn').onclick = async ()=>{
     const name = document.getElementById('new-nurse-name').value.trim();
     const hire = document.getElementById('new-nurse-hire').value;
     if(!name){ showToast('이름을 입력해주세요'); return; }
-    state.nurses.push({id:uid('n'), name, hireDate:hire});
+    state.nurses.push({id:uid('n'), name, hireDate:hire, manualLevelId:null});
     await safeSet('nurses', state.nurses, true);
     showToast('간호사가 등록되었습니다');
     render();
@@ -961,6 +1037,16 @@ function renderRosterPanel(panel){
   });
   panel.querySelectorAll('[data-hist]').forEach(btn=>{
     btn.onclick = ()=> openHistoryModal(btn.dataset.hist);
+  });
+  panel.querySelectorAll('[data-setlevel]').forEach(sel=>{
+    sel.onchange = async ()=>{
+      const n = state.nurses.find(x=>x.id===sel.dataset.setlevel);
+      if(!n) return;
+      n.manualLevelId = sel.value || null;
+      await safeSet('nurses', state.nurses, true);
+      showToast(`${n.name} 간호사의 단계가 ${sel.value?'수동 설정':'자동 계산'}으로 변경되었습니다`);
+      render();
+    };
   });
 }
 
@@ -1098,14 +1184,12 @@ async function renderByNurseTable(){
   const year = state.selectedYear;
   const rows = [];
   for(const n of state.nurses){
-    const yrs = yearsOfService(n.hireDate, year);
-    const level = levelForYears(state.levels, yrs);
-    const levelPrograms = level ? state.programs.filter(p=>p.levelId===level.id) : [];
+    const {effective: level, isManual} = getEffectiveLevel(n, year);
     const rec = await getRecord(n.id, year);
     let stars = 0;
-    levelPrograms.forEach(p=>{ if(rec.programs[p.id] && rec.programs[p.id].date) stars += p.stars; });
+    state.programs.forEach(p=>{ if(rec.programs[p.id] && rec.programs[p.id].date) stars += p.stars; });
     const mandatoryDone = (rec.mandatory.hospital&&rec.mandatory.hospital.date?1:0) + (rec.mandatory.online&&rec.mandatory.online.date?1:0) + (rec.mandatory.refresher.length>0?1:0);
-    rows.push({n, level, stars, mandatoryDone, refresherCount: rec.mandatory.refresher.length});
+    rows.push({n, level, isManual, stars, mandatoryDone, refresherCount: rec.mandatory.refresher.length});
   }
   lastByNurseRows = rows;
   if(rows.length===0){ target.innerHTML = '<div class="empty">등록된 간호사가 없습니다.</div>'; return; }
@@ -1116,7 +1200,7 @@ async function renderByNurseTable(){
         ${rows.map(r=>`
           <tr>
             <td>${r.n.name}</td>
-            <td>${r.level?r.level.label:'-'}</td>
+            <td>${r.level?r.level.label:'-'}${r.isManual?' <span class="small-muted">(수동)</span>':''}</td>
             <td>${r.stars} / ${STAR_GOAL}</td>
             <td>${r.mandatoryDone} / 3</td>
             <td>${r.refresherCount}건</td>
@@ -1132,8 +1216,8 @@ async function renderByNurseTable(){
   const exportBtn = document.getElementById('export-bynurse-btn');
   if(exportBtn){
     exportBtn.onclick = ()=>{
-      const aoa = [['이름','단계','단계교육(별)','단계교육목표','필수교육 완료','보수교육 건수'],
-        ...lastByNurseRows.map(r=>[r.n.name, r.level?r.level.label:'-', r.stars, STAR_GOAL, `${r.mandatoryDone}/3`, r.refresherCount])];
+      const aoa = [['이름','단계','단계지정방식','단계교육(별)','단계교육목표','필수교육 완료','보수교육 건수'],
+        ...lastByNurseRows.map(r=>[r.n.name, r.level?r.level.label:'-', r.isManual?'수동':'자동', r.stars, STAR_GOAL, `${r.mandatoryDone}/3`, r.refresherCount])];
       exportAOA(aoa, `${year}년_간호사별_이수현황.xlsx`);
     };
   }
